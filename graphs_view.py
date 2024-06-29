@@ -425,7 +425,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 for _id, desc in self.curves.items():
                     desc['time'] = []
                     desc['val'] = []
-                    desc['curve'].clear()
+                    desc['curve'].setData([], [])
 
     def pause(self):
         if self.timer.isActive():
