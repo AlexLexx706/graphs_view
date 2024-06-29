@@ -229,12 +229,15 @@ class ConsoleFrame(QtWidgets.QFrame):
     def send(self):
         if self.ser:
             line = self.combo_box_cmd.currentText()
+            line_ending = self.combo_box_line_ending.itemData(
+                self.combo_box_line_ending.currentIndex())
+
             cursor = QtGui.QTextCursor(self.plain_text_editor.document())
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
-            cursor.insertText(line)
+            cursor.insertText(line + "" if not line_ending else '\n')
+
             Settings.setValue("history", self.plain_text_editor.toPlainText())
-            data = line.encode() + self.combo_box_line_ending.itemData(
-                self.combo_box_line_ending.currentIndex())
+            data = line.encode() + line_ending
             self.ser.write(data)
 
     def on_currentIndexChanged(self, index):
@@ -555,6 +558,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         self.exit_flag.set()
         event.accept()
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
