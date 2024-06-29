@@ -252,6 +252,8 @@ class ConsoleFrame(QtWidgets.QFrame):
         cursor = QtGui.QTextCursor(self.plain_text_editor.document())
         cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
         cursor.insertText(line.decode())
+        self.plain_text_editor.moveCursor(QtGui.QTextCursor.MoveOperation.End)
+
 
 
 class MainWindow(QtWidgets.QMainWindow):
