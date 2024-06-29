@@ -384,7 +384,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.settings_frame.push_button_open.setText("close")
                 self.settings_frame.combo_box_port_path.setEnabled(False)
                 self.settings_frame.combo_box_speed.setEnabled(False)
-                self.settings_frame.group_box_line_parsing.setEnabled(False)
                 self.console_frame.set_serial(
                     self.ser,
                     self.settings_frame.group_box_line_parsing.isChecked())
@@ -398,7 +397,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.settings_frame.push_button_open.setText("open")
             self.settings_frame.combo_box_port_path.setEnabled(True)
             self.settings_frame.combo_box_speed.setEnabled(True)
-            self.settings_frame.group_box_line_parsing.setEnabled(True)
             self.console_frame.set_serial(None, None)
 
     def clear(self, remove_items=True):
