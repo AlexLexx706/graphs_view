@@ -90,6 +90,11 @@ class SettingFrame(QtWidgets.QFrame):
         self.check_box_show_only_cmd_response.setToolTip(
             "Display only responses to commands "
             "(everything that starts with RE and ER) in the console.")
+        self.check_box_show_only_cmd_response.toggled.connect(
+            self.on_show_only_cmd_response_changes)
+        value = Settings.value('only_cmd_response')
+        self.check_box_show_only_cmd_response.setChecked(
+            int(value) if value is not None else 0)
 
         h_box_layout_graphs = QtWidgets.QHBoxLayout(
             self.group_box_line_parsing)
@@ -114,6 +119,9 @@ class SettingFrame(QtWidgets.QFrame):
         h_box_layout.addWidget(self.combo_box_port_path)
         h_box_layout.addWidget(self.push_button_open)
         h_box_layout.addWidget(self.combo_box_speed)
+
+    def on_show_only_cmd_response_changes(self, value):
+        Settings.setValue('only_cmd_response', int(value)),
 
     def on_port_changed(self, port_path):
         Settings.setValue('port_path', port_path),
@@ -235,7 +243,8 @@ class ConsoleFrame(QtWidgets.QFrame):
             cursor = QtGui.QTextCursor(self.plain_text_editor.document())
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
             cursor.insertText(line + ("" if not line_ending else '\n'))
-            self.plain_text_editor.moveCursor(QtGui.QTextCursor.MoveOperation.End)
+            self.plain_text_editor.moveCursor(
+                QtGui.QTextCursor.MoveOperation.End)
 
             Settings.setValue("history", self.plain_text_editor.toPlainText())
             data = line.encode() + line_ending
@@ -253,7 +262,6 @@ class ConsoleFrame(QtWidgets.QFrame):
         cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
         cursor.insertText(line.decode())
         self.plain_text_editor.moveCursor(QtGui.QTextCursor.MoveOperation.End)
-
 
 
 class MainWindow(QtWidgets.QMainWindow):
