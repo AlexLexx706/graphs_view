@@ -234,7 +234,8 @@ class ConsoleFrame(QtWidgets.QFrame):
 
             cursor = QtGui.QTextCursor(self.plain_text_editor.document())
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.End)
-            cursor.insertText(line + "" if not line_ending else '\n')
+            cursor.insertText(line + ("" if not line_ending else '\n'))
+            self.plain_text_editor.moveCursor(QtGui.QTextCursor.MoveOperation.End)
 
             Settings.setValue("history", self.plain_text_editor.toPlainText())
             data = line.encode() + line_ending
