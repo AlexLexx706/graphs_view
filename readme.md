@@ -12,5 +12,5 @@ The timestamp used is the moment when the data is read from the port."
 
 ## How to run
 
-`./venv/bin/python show_serial.py`
+`./venv/bin/python graphs_view.py`
 or in linux you can use: `./graphs_view.sh`
