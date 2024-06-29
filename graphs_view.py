@@ -79,9 +79,9 @@ class SettingFrame(QtWidgets.QFrame):
             "Suspend updating data on the graphs "
             "(data is not lost, it accumulates in the background).")
 
-        self.check_box_flat_mode = QtWidgets.QCheckBox("Flat_mode")
-        self.check_box_flat_mode.setToolTip(
-            "This mode replaces the time-based display with a "
+        self.check_box_xy_mode = QtWidgets.QCheckBox("XY plot")
+        self.check_box_xy_mode.setToolTip(
+            "XY mode replaces the time-based display with a "
             "dot display (data for the dots: "
             "x - the first element of the row, y - the second element).")
 
@@ -103,7 +103,7 @@ class SettingFrame(QtWidgets.QFrame):
         h_box_layout_graphs.addWidget(self.spin_box_max_points)
         h_box_layout_graphs.addWidget(self.push_button_clear)
         h_box_layout_graphs.addWidget(self.push_button_pause)
-        h_box_layout_graphs.addWidget(self.check_box_flat_mode)
+        h_box_layout_graphs.addWidget(self.check_box_xy_mode)
         h_box_layout_graphs.addWidget(self.check_box_show_only_cmd_response)
         h_box_layout_graphs.addSpacerItem(QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Expanding))
@@ -318,8 +318,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_frame.push_button_clear.clicked.connect(
             self.on_clear_graphs)
         self.settings_frame.push_button_pause.clicked.connect(self.pause)
-        self.settings_frame.check_box_flat_mode.toggled.connect(
-            self.flat_mode_changed)
+        self.settings_frame.check_box_xy_mode.toggled.connect(
+            self.xy_mode_changed)
         self.curves = {}
         self.exit_flag = threading.Event()
         self.ser = None
@@ -435,7 +435,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.timer.start(self.UPDATE_RATE)
             self.settings_frame.push_button_pause.setText("Pause")
 
-    def flat_mode_changed(self, state):
+    def xy_mode_changed(self, state):
         if state:
             self.plot_graph.setAspectLocked(lock=True)
             self.clear()
@@ -513,7 +513,7 @@ class MainWindow(QtWidgets.QMainWindow):
         max_len = self.settings_frame.spin_box_max_points.value()
 
         # draw graphs
-        if not self.settings_frame.check_box_flat_mode.isChecked():
+        if not self.settings_frame.check_box_xy_mode.isChecked():
             for index, data in res.items():
                 _time, val = data
                 desc = self.curves.setdefault(index, {})
