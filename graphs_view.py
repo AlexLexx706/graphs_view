@@ -14,6 +14,178 @@ Settings = QtCore.QSettings('alexlexx', 'graph_view')
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
+class ParametersFrame(QtWidgets.QFrame):
+    parameter_changed = QtCore.pyqtSignal(str)
+
+    class ParameterFrame(QtWidgets.QFrame):
+        value_changed = QtCore.pyqtSignal(str)
+        state_changed = QtCore.pyqtSignal()
+
+        def __init__(self):
+            super().__init__()
+            self.radio_button_select = QtWidgets.QRadioButton(self)
+
+            self.line_edit_template = QtWidgets.QLineEdit(self)
+            self.line_edit_template.setText(
+                'set,/controller/heading_pid/p,%f')
+            self.line_edit_template.textChanged.connect(self.on_state_changed)
+
+            self.double_spin_box_min = QtWidgets.QDoubleSpinBox(self)
+            self.double_spin_box_min.setMinimum(-10000000)
+            self.double_spin_box_min.setMaximum(10000000)
+            self.double_spin_box_min.setValue(0)
+            self.double_spin_box_min.valueChanged.connect(
+                self.on_state_changed)
+
+            self.double_spin_box_max = QtWidgets.QDoubleSpinBox(self)
+            self.double_spin_box_max.setMinimum(-10000000)
+            self.double_spin_box_max.setMaximum(10000000)
+            self.double_spin_box_max.setValue(1000)
+            self.double_spin_box_max.valueChanged.connect(
+                self.on_state_changed)
+
+            self.double_spin_box_value = QtWidgets.QDoubleSpinBox(self)
+            self.double_spin_box_value.setMinimum(
+                self.double_spin_box_min.value())
+            self.double_spin_box_value.setMaximum(
+                self.double_spin_box_max.value())
+            self.double_spin_box_value.setValue(0)
+            self.double_spin_box_value.setSingleStep(0.01)
+            self.double_spin_box_min.valueChanged.connect(
+                self.double_spin_box_value.setMinimum)
+            self.double_spin_box_max.valueChanged.connect(
+                self.double_spin_box_value.setMaximum)
+            self.double_spin_box_value.valueChanged.connect(
+                self.on_value_changed)
+            self.double_spin_box_value.valueChanged.connect(
+                self.on_state_changed)
+
+            self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+            self.slider.setMinimum(0)
+            self.slider.setMaximum(100)
+            self.slider.valueChanged.connect(self.on_slider_value_changed)
+            self.slider.valueChanged.connect(self.on_state_changed)
+
+            self.check_box_enable = QtWidgets.QCheckBox("Enable")
+            self.check_box_enable.toggled.connect(self.on_state_changed)
+
+            self.h_box_layout = QtWidgets.QHBoxLayout(self)
+            self.h_box_layout.addWidget(self.radio_button_select)
+            self.h_box_layout.addWidget(self.line_edit_template)
+            self.h_box_layout.addWidget(self.double_spin_box_min)
+            self.h_box_layout.addWidget(self.double_spin_box_value)
+            self.h_box_layout.addWidget(self.slider)
+            self.h_box_layout.addWidget(self.double_spin_box_max)
+            self.h_box_layout.addWidget(self.check_box_enable)
+
+        def get_state(self):
+            return {
+                'template': self.line_edit_template.text(),
+                'min': self.double_spin_box_min.value(),
+                'max': self.double_spin_box_max.value(),
+                'value': self.double_spin_box_value.value(),
+                'enable': self.check_box_enable.isChecked()}
+
+        def set_state(self, state):
+            prev_block = self.blockSignals(True)
+            self.line_edit_template.setText(state['template'])
+            self.double_spin_box_min.setValue(state['min'])
+            self.double_spin_box_max.setValue(state['max'])
+            self.double_spin_box_value.setValue(state['value'])
+            self.check_box_enable.setChecked(state['enable'])
+            self.blockSignals(prev_block)
+
+        def on_state_changed(self):
+            self.state_changed.emit()
+
+        def send_value(self, value):
+            if self.check_box_enable.isChecked() and self.line_edit_template.text():
+                self.value_changed.emit(self.line_edit_template.text() % value)
+
+        def on_value_changed(self, value):
+            prev_block = self.slider.blockSignals(True)
+            value = (value - self.double_spin_box_value.minimum()) / \
+                (self.double_spin_box_value.maximum() -
+                 self.double_spin_box_value.minimum())
+            slider_value = value * \
+                (self.slider.maximum() - self.slider.minimum()) + \
+                self.slider.minimum()
+            self.slider.setValue(int(slider_value))
+            self.send_value(value)
+            self.slider.blockSignals(prev_block)
+
+        def on_slider_value_changed(self, value):
+            prev_block = self.double_spin_box_value.blockSignals(True)
+            value = (value - self.slider.minimum()) / \
+                (self.slider.maximum() - self.slider.minimum())
+            spin_box_value = value * (self.double_spin_box_value.maximum(
+            ) - self.double_spin_box_value.minimum()) + self.double_spin_box_value.minimum()
+            self.double_spin_box_value.setValue(spin_box_value)
+            self.send_value(spin_box_value)
+            self.double_spin_box_value.blockSignals(prev_block)
+
+    def __init__(self):
+        super().__init__()
+        self.button_group = QtWidgets.QButtonGroup()
+
+        self.app_parameter = QtWidgets.QAction("Add parameter")
+        self.addAction(self.app_parameter)
+        self.app_parameter.triggered.connect(self.add_parameter)
+
+        self.remove_parameter = QtWidgets.QAction("Remove parameter")
+        self.addAction(self.remove_parameter)
+        self.remove_parameter.triggered.connect(self.on_remove_parameter)
+
+        self.setContextMenuPolicy(
+            QtCore.Qt.ContextMenuPolicy.ActionsContextMenu)
+        self.v_box_layout = QtWidgets.QVBoxLayout(self)
+
+        self.spacer = QtWidgets.QSpacerItem(
+            0, 0, vPolicy=QtWidgets.QSizePolicy.Expanding)
+        self.v_box_layout.addSpacerItem(self.spacer)
+
+        parameters = Settings.value("parameters")
+        if parameters is not None:
+            for state in parameters:
+                self.create_parameter().set_state(state)
+
+    def create_parameter(self):
+        param = self.ParameterFrame()
+        self.button_group.addButton(param.radio_button_select)
+        index = self.v_box_layout.indexOf(self.spacer)
+        self.v_box_layout.insertWidget(index, param)
+
+        if self.button_group.checkedButton() is None:
+            param.radio_button_select.setChecked(True)
+        param.value_changed.connect(self.on_parameter_value_changed)
+        param.state_changed.connect(self.on_parameter_state_changed)
+        return param
+
+    def add_parameter(self):
+        self.create_parameter()
+        self.on_parameter_state_changed()
+
+    def on_remove_parameter(self):
+        btn = self.button_group.checkedButton()
+        if btn:
+            param_frame = btn.parent()
+            self.v_box_layout.removeWidget(param_frame)
+            del param_frame
+        self.on_parameter_state_changed()
+
+    def on_parameter_value_changed(self, value):
+        self.parameter_changed.emit(value)
+
+    def on_parameter_state_changed(self):
+        state = []
+        for i in range(self.v_box_layout.count()):
+            param = self.v_box_layout.itemAt(i)
+            if isinstance(param, QtWidgets.QWidgetItem):
+                param = param.widget()
+                state.append(param.get_state())
+        Settings.setValue("parameters", state)
+
+
 class SettingFrame(QtWidgets.QFrame):
     def __init__(self):
         super().__init__()
@@ -183,7 +355,7 @@ class ConsoleFrame(QtWidgets.QFrame):
         self.clear_action.triggered.connect(self.on_clear_history)
         self.plain_text_editor.setContextMenuPolicy(
             QtCore.Qt.ContextMenuPolicy.ActionsContextMenu)
-        self.combo_box_cmd.lineEdit().editingFinished.connect(self.send)
+        self.combo_box_cmd.lineEdit().editingFinished.connect(self.on_line_changed)
         self.combo_box_cmd.currentIndexChanged.connect(
             self.on_currentIndexChanged)
 
@@ -234,9 +406,12 @@ class ConsoleFrame(QtWidgets.QFrame):
         self.ser = ser
         self.setEnabled(True if ser else False)
 
-    def send(self):
+    def on_line_changed(self):
+        line = self.combo_box_cmd.currentText()
+        self.send_line(line)
+
+    def send_line(self, line):
         if self.ser:
-            line = self.combo_box_cmd.currentText()
             line_ending = self.combo_box_line_ending.itemData(
                 self.combo_box_line_ending.currentIndex())
 
@@ -301,10 +476,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plot_graph.showGrid(x=True, y=True)
         self.legend = self.plot_graph.addLegend()
 
-        self.settings_frame = SettingFrame()
+        self.parameters_frame = ParametersFrame()
+        self.parameters_dock_widget = QtWidgets.QDockWidget(
+            "Parameters", self)
+        self.parameters_dock_widget.setObjectName("parameters_dock_widget")
+        self.parameters_dock_widget.setFeatures(
+            QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable |
+            QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+        self.parameters_dock_widget.setAllowedAreas(
+            QtCore.Qt.AllDockWidgetAreas)
+        self.parameters_dock_widget.setWidget(self.parameters_frame)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
+                           self.parameters_dock_widget)
 
+        self.settings_frame = SettingFrame()
         self.settings_dock_widget = QtWidgets.QDockWidget(
             "Port settings", self)
+        self.settings_dock_widget.setObjectName("settings_dock_widget")
         self.settings_dock_widget.setFeatures(
             QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable |
             QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetFloatable)
@@ -335,6 +523,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.console_frame = ConsoleFrame()
         self.NEW_LINE.connect(self.console_frame.on_new_line)
         self.console_dock_widget = QtWidgets.QDockWidget("Console", self)
+        self.console_dock_widget.setObjectName("console_dock_widget")
         self.console_dock_widget.setFeatures(
             QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable |
             QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetFloatable)
@@ -344,6 +533,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.console_dock_widget.setWidget(self.console_frame)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea,
                            self.console_dock_widget)
+        self.parameters_frame.parameter_changed.connect(
+            self.console_frame.send_line)
 
         self.file_menu = self.menuBar().addMenu("&View")
 
@@ -361,10 +552,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show_console.triggered.connect(
             self.console_dock_widget.setVisible)
 
+        self.show_parameters = QtWidgets.QAction("Parameters")
+        self.show_parameters.setCheckable(True)
+        self.show_parameters.setChecked(True)
+        self.file_menu.addAction(self.show_parameters)
+        self.show_parameters.triggered.connect(
+            self.parameters_dock_widget.setVisible)
+
         self.help_menu = self.menuBar().addMenu("&Help")
         self.action_about = QtWidgets.QAction("About")
         self.help_menu.addAction(self.action_about)
         self.action_about.triggered.connect(self.on_help)
+
+        window_state = Settings.value("window_state")
+        if window_state:
+            self.restoreState(window_state)
+
+        window_geometry = Settings.value("window_geometry")
+        if window_geometry:
+            self.restoreGeometry(window_geometry)
 
     def on_clear_graphs(self):
         self.clear(False)
@@ -567,6 +773,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 scatter.setData(desc['x'], desc['y'])
 
     def closeEvent(self, event):
+        Settings.setValue("window_state", self.saveState())
+        Settings.setValue("window_geometry", self.saveGeometry())
         self.exit_flag.set()
         event.accept()
 
