@@ -281,6 +281,9 @@ class SettingFrame(QtWidgets.QFrame):
         h_box_layout_graphs = QtWidgets.QHBoxLayout(
             self.group_box_line_parsing)
         v_box_layout.addWidget(self.group_box_line_parsing)
+        v_box_layout.addSpacerItem(QtWidgets.QSpacerItem(
+            0, 0, vPolicy=QtWidgets.QSizePolicy.Expanding))
+
         h_box_layout_graphs.addWidget(QtWidgets.QLabel("Max points:"))
         h_box_layout_graphs.addWidget(self.spin_box_max_points)
         h_box_layout_graphs.addWidget(self.push_button_clear)
@@ -579,6 +582,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.restoreState(window_state)
 
         window_geometry = Settings.value("window_geometry")
+
         if window_geometry:
             self.restoreGeometry(window_geometry)
 
