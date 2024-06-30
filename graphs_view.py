@@ -108,30 +108,36 @@ class ParametersFrame(QtWidgets.QFrame):
         def on_value_changed(self, value):
             prev_block = self.slider.blockSignals(True)
 
-            norm_value = (
-                (value - self.double_spin_box_value.minimum()) /
-                (self.double_spin_box_value.maximum() -self.double_spin_box_value.minimum()))
+            try:
+                norm_value = (
+                    (value - self.double_spin_box_value.minimum()) /
+                    (self.double_spin_box_value.maximum() -self.double_spin_box_value.minimum()))
 
-            slider_value = (
-                norm_value * (self.slider.maximum() - self.slider.minimum()) +
-                self.slider.minimum())
+                slider_value = (
+                    norm_value * (self.slider.maximum() - self.slider.minimum()) +
+                    self.slider.minimum())
 
-            self.slider.setValue(int(slider_value))
-            self.send_value(value)
+                self.slider.setValue(int(slider_value))
+                self.send_value(value)
+            except ZeroDivisionError:
+                pass
             self.slider.blockSignals(prev_block)
 
         def on_slider_value_changed(self, value):
             prev_block = self.double_spin_box_value.blockSignals(True)
-            norm_value = (
-                (value - self.slider.minimum()) /
-                (self.slider.maximum() - self.slider.minimum()))
+            try:
+                norm_value = (
+                    (value - self.slider.minimum()) /
+                    (self.slider.maximum() - self.slider.minimum()))
 
-            spin_box_value = (
-                norm_value * (self.double_spin_box_value.maximum() - self.double_spin_box_value.minimum()) +
-                self.double_spin_box_value.minimum())
+                spin_box_value = (
+                    norm_value * (self.double_spin_box_value.maximum() - self.double_spin_box_value.minimum()) +
+                    self.double_spin_box_value.minimum())
 
-            self.double_spin_box_value.setValue(spin_box_value)
-            self.send_value(spin_box_value)
+                self.double_spin_box_value.setValue(spin_box_value)
+                self.send_value(spin_box_value)
+            except ZeroDivisionError:
+                pass
             self.double_spin_box_value.blockSignals(prev_block)
 
     def __init__(self):
