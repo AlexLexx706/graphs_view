@@ -93,6 +93,7 @@ class ParametersFrame(QtWidgets.QFrame):
             self.double_spin_box_max.setValue(state['max'])
             self.double_spin_box_value.setValue(state['value'])
             self.check_box_enable.setChecked(state['enable'])
+            self.on_value_changed(state['value'])
             self.blockSignals(prev_block)
 
         def on_state_changed(self):
@@ -100,26 +101,35 @@ class ParametersFrame(QtWidgets.QFrame):
 
         def send_value(self, value):
             if self.check_box_enable.isChecked() and self.line_edit_template.text():
-                self.value_changed.emit(self.line_edit_template.text() % value)
+                text = self.line_edit_template.text()
+                param  = text.format(value)
+                self.value_changed.emit(param)
 
         def on_value_changed(self, value):
             prev_block = self.slider.blockSignals(True)
-            value = (value - self.double_spin_box_value.minimum()) / \
-                (self.double_spin_box_value.maximum() -
-                 self.double_spin_box_value.minimum())
-            slider_value = value * \
-                (self.slider.maximum() - self.slider.minimum()) + \
-                self.slider.minimum()
+
+            norm_value = (
+                (value - self.double_spin_box_value.minimum()) /
+                (self.double_spin_box_value.maximum() -self.double_spin_box_value.minimum()))
+
+            slider_value = (
+                norm_value * (self.slider.maximum() - self.slider.minimum()) +
+                self.slider.minimum())
+
             self.slider.setValue(int(slider_value))
             self.send_value(value)
             self.slider.blockSignals(prev_block)
 
         def on_slider_value_changed(self, value):
             prev_block = self.double_spin_box_value.blockSignals(True)
-            value = (value - self.slider.minimum()) / \
-                (self.slider.maximum() - self.slider.minimum())
-            spin_box_value = value * (self.double_spin_box_value.maximum(
-            ) - self.double_spin_box_value.minimum()) + self.double_spin_box_value.minimum()
+            norm_value = (
+                (value - self.slider.minimum()) /
+                (self.slider.maximum() - self.slider.minimum()))
+
+            spin_box_value = (
+                norm_value * (self.double_spin_box_value.maximum() - self.double_spin_box_value.minimum()) +
+                self.double_spin_box_value.minimum())
+
             self.double_spin_box_value.setValue(spin_box_value)
             self.send_value(spin_box_value)
             self.double_spin_box_value.blockSignals(prev_block)
