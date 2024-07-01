@@ -8,7 +8,7 @@ The timestamp used is the moment when the data is read from the port."
 
 ## How to install:
 1. You need to [install the virtualenv module](https://virtualenv.pypa.io/en/latest/installation.html) in your Python3 environment before proceeding to the next steps.
-2. `python3 -m virtualenv venv`
+2. Creating virtual env: `python3 -m virtualenv venv`
 3. Install requirements:
     1. Linux: `./venv/bin/pip install -r requirements.txt`
     2. windows: `venv\Scripts\pip install -r requirements.txt`
