@@ -11,7 +11,6 @@ import signal
 from serial.tools import list_ports
 
 Settings = QtCore.QSettings('alexlexx', 'graph_view')
-signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 class ParametersFrame(QtWidgets.QFrame):
@@ -102,7 +101,7 @@ class ParametersFrame(QtWidgets.QFrame):
         def send_value(self, value):
             if self.check_box_enable.isChecked() and self.line_edit_template.text():
                 text = self.line_edit_template.text()
-                param  = text.format(value)
+                param = text.format(value)
                 self.value_changed.emit(param)
 
         def on_value_changed(self, value):
@@ -111,7 +110,7 @@ class ParametersFrame(QtWidgets.QFrame):
             try:
                 norm_value = (
                     (value - self.double_spin_box_value.minimum()) /
-                    (self.double_spin_box_value.maximum() -self.double_spin_box_value.minimum()))
+                    (self.double_spin_box_value.maximum() - self.double_spin_box_value.minimum()))
 
                 slider_value = (
                     norm_value * (self.slider.maximum() - self.slider.minimum()) +
@@ -673,9 +672,29 @@ class MainWindow(QtWidgets.QMainWindow):
             self.plot_graph.setLabel("left", "value")
             self.plot_graph.setLabel("bottom", "time")
 
+    def read_lines(self):
+        state = 0
+        data = b''
+        packet_time = time.time()
+        while not self.exit_flag.is_set():
+            symbol = self.ser.read(1)
+            # splitter detected
+            if symbol in b'\r\n':
+                if state != 1:
+                    yield state, packet_time, data
+                    data = b''
+                state = 1
+            # collecting data
+            else:
+                if state == 1:
+                    packet_time = time.time()
+                    state = 2
+                data += symbol
+
     def read_serial(self):
         is_string_parsing = self.settings_frame.group_box_line_parsing.isChecked()
         with self.ser:
+            self.ser.reset_input_buffer()
             # row mode
             if not is_string_parsing:
                 while not self.exit_flag.is_set():
@@ -684,39 +703,20 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.NEW_LINE.emit(symbol)
             # string parsing
             else:
-                splitter = b''
-                state = 0
-                # detect string splitter
-                while not self.exit_flag.is_set():
-                    symbol = self.ser.read(1)
-                    if state == 0 and symbol not in b'\r\n':
-                        state = 1
-                    elif state == 1:
-                        if symbol in b'\r\n':
-                            splitter += symbol
-                        elif splitter:
-                            break
-                else:
-                    return
-                self.process_line(
-                    symbol + self.ser.read_until(splitter), time.time())
-                while not self.exit_flag.is_set():
-                    self.process_line(
-                        self.ser.read_until(splitter), time.time())
-
-    def process_line(self, row_line, cur_time):
-        strip_line = row_line.strip()
-        if strip_line:
-            if not self.settings_frame.check_box_show_only_cmd_response.isChecked() or\
-                    strip_line[:2] in [b'RE', b'ER']:
-                self.NEW_LINE.emit(strip_line + b'\n')
-            data = strip_line.split()
-            if data:
-                try:
-                    data = [float(d) for d in data]
-                    self.put(cur_time, data)
-                except ValueError as e:
-                    print(f'error:{e} line:{row_line}')
+                for _full_line, cur_time, row_line in self.read_lines():
+                    strip_line = row_line.strip()
+                    if strip_line:
+                        if not self.settings_frame.check_box_show_only_cmd_response.isChecked() or\
+                                strip_line[:2] in [b'RE', b'ER']:
+                            self.NEW_LINE.emit(strip_line + b'\n')
+                        if _full_line:
+                            data = strip_line.split()
+                            if data:
+                                try:
+                                    data = [float(d) for d in data]
+                                    self.put(cur_time, data)
+                                except ValueError as e:
+                                    print(f'error:{e} line:{row_line}')
 
     def put(self, cur_time, data):
         with self.lock:
@@ -749,7 +749,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 desc['val'] = desc['val'][-max_len:]
 
                 if 'curve' not in desc:
-                    curve = pyqtgraph.PlotCurveItem()
+                    curve = pyqtgraph.ScatterPlotItem()
                     pen = pyqtgraph.mkPen(
                         self.COLOURS[index % len(self.COLOURS)],
                         width=self.GRAPH_WIDTH)
@@ -800,6 +800,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QtWidgets.QApplication([])
     main = MainWindow()
     main.show()
