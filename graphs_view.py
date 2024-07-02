@@ -9,8 +9,70 @@ import threading
 import time
 import signal
 from serial.tools import list_ports
+import types
+import multiprocessing
+import queue
 
 Settings = QtCore.QSettings('alexlexx', 'graph_view')
+
+
+def process_port(in_queue, out_queue, settings):
+    try:
+        with serial.Serial(**settings['serial']) as ser:
+            is_string_parsing = settings['parsing_mode']
+            ser.reset_input_buffer()
+            ser.reset_output_buffer()
+            out_queue.put((0, time.time(), b''))
+            state = types.SimpleNamespace(stop=False)
+
+            def send_proc():
+                try:
+                    while 1:
+                        data = in_queue.get()
+                        # exit
+                        if not data:
+                            break
+                        ser.write(data)
+                finally:
+                    state.stop = True
+
+            send_thread = threading.Thread(target=send_proc)
+            send_thread.start()
+
+            r_state = 0
+            # row mode
+            if not is_string_parsing:
+                while not state.stop:
+                    packet = ser.read(100)
+                    packet_time = time.time()
+                    if packet:
+                        out_queue.put((r_state, packet_time, packet))
+                        r_state = 1
+            # string parsing
+            else:
+                data = b''
+                packet_time = time.time()
+                while not state.stop:
+                    symbol = ser.read(1)
+                    # splitter detected
+                    if symbol in b'\r\n':
+                        if r_state != 1:
+                            data = data.strip()
+                            if data:
+                                packet = (r_state, packet_time, data)
+                                out_queue.put(packet)
+                                # time.sleep(0.0001)
+                            data = b''
+                        r_state = 1
+                    # collecting data
+                    else:
+                        if r_state == 1:
+                            packet_time = time.time()
+                            r_state = 2
+                        data += symbol
+            send_thread.join()
+    finally:
+        out_queue.put(None)
 
 
 class ParametersFrame(QtWidgets.QFrame):
@@ -345,7 +407,7 @@ class ConsoleFrame(QtWidgets.QFrame):
 
         self.push_button_send = QtWidgets.QPushButton("Send")
         self.push_button_send.setToolTip("Send command to port.")
-        self.ser = None
+        self.cmd_queue = None
         self.combo_box_cmd.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Fixed)
@@ -366,7 +428,7 @@ class ConsoleFrame(QtWidgets.QFrame):
             "Displays incoming stream from the COM port.")
         self.plain_text_editor.setReadOnly(True)
         v_box_layout.addWidget(self.plain_text_editor)
-        self.set_serial(None, None)
+        self.set_cmd_queue(None)
 
         self.clear_action = QtWidgets.QAction("Clear")
         self.plain_text_editor.addAction(self.clear_action)
@@ -420,16 +482,16 @@ class ConsoleFrame(QtWidgets.QFrame):
         self.plain_text_editor.clear()
         Settings.setValue("history", "")
 
-    def set_serial(self, ser, splitter):
-        self.ser = ser
-        self.setEnabled(True if ser else False)
+    def set_cmd_queue(self, cmd_queue):
+        self.cmd_queue = cmd_queue
+        self.setEnabled(bool(self.cmd_queue))
 
     def on_line_changed(self):
         line = self.combo_box_cmd.currentText()
         self.send_line(line)
 
     def send_line(self, line):
-        if self.ser:
+        if self.cmd_queue:
             line_ending = self.combo_box_line_ending.itemData(
                 self.combo_box_line_ending.currentIndex())
 
@@ -441,7 +503,7 @@ class ConsoleFrame(QtWidgets.QFrame):
 
             Settings.setValue("history", self.plain_text_editor.toPlainText())
             data = line.encode() + line_ending
-            self.ser.write(data)
+            self.cmd_queue.put(data)
 
     def on_currentIndexChanged(self, index):
         Settings.setValue(
@@ -527,15 +589,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_frame.check_box_xy_mode.toggled.connect(
             self.xy_mode_changed)
         self.curves = {}
-        self.exit_flag = threading.Event()
-        self.ser = None
-        self.lock = threading.Lock()
         self.results = {}
 
-        self.serial_thread = None
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
-        self.timer.start(self.UPDATE_RATE)
         self.setWindowState(QtCore.Qt.WindowMaximized)
 
         self.console_frame = ConsoleFrame()
@@ -591,6 +648,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if window_geometry:
             self.restoreGeometry(window_geometry)
 
+        self.process_port = None
+        self.in_queue = None
+        self.out_queue = None
+
     def on_clear_graphs(self):
         self.clear(False)
 
@@ -609,48 +670,67 @@ class MainWindow(QtWidgets.QMainWindow):
             "alexlexx1@gmail.com")
 
     def on_open_port(self):
-        if self.ser is None:
+        if not self.process_port:
             try:
                 path = self.settings_frame.combo_box_port_path.currentText()
                 baudrate = self.settings_frame.combo_box_speed.currentData()
-                self.ser = serial.Serial(
-                    path, baudrate=baudrate, timeout=self.timeout)
+                in_queue = multiprocessing.Queue()
+                out_queue = multiprocessing.Queue()
+                settings = {
+                    'serial': {
+                        'port': path,
+                        'baudrate': baudrate,
+                        'timeout': self.timeout},
+                    'parsing_mode': self.settings_frame.group_box_line_parsing.isChecked()}
+                proc = multiprocessing.Process(
+                    target=process_port,
+                    args=(in_queue, out_queue, settings))
+                proc.start()
+                res = out_queue.get()
 
-                self.serial_thread = threading.Thread(target=self.read_serial)
-                self.exit_flag.clear()
+                # finished process
+                if not res:
+                    proc.join()
+                    return
+
+                self.process_port = proc
+                self.in_queue = in_queue
+                self.out_queue = out_queue
+
+                self.timer.start(self.UPDATE_RATE)
+                self.settings_frame.push_button_pause.setText("Pause")
                 self.clear()
-                self.serial_thread.start()
                 self.settings_frame.push_button_open.setText("close")
                 self.settings_frame.combo_box_port_path.setEnabled(False)
                 self.settings_frame.combo_box_speed.setEnabled(False)
-                self.console_frame.set_serial(
-                    self.ser,
-                    self.settings_frame.group_box_line_parsing.isChecked())
+                self.console_frame.set_cmd_queue(self.in_queue)
             except serial.serialutil.SerialException as e:
                 QtWidgets.QMessageBox.warning(
                     self, "Warning", str(e))
         else:
-            self.exit_flag.set()
-            self.serial_thread.join()
-            self.ser = None
+            self.in_queue.put(None)
+            self.process_port.join()
+            self.process_port = None
+            self.in_queue = None
+            self.out_queue = None
+
             self.settings_frame.push_button_open.setText("open")
             self.settings_frame.combo_box_port_path.setEnabled(True)
             self.settings_frame.combo_box_speed.setEnabled(True)
-            self.console_frame.set_serial(None, None)
+            self.console_frame.set_cmd_queue(None)
 
     def clear(self, remove_items=True):
-        with self.lock:
-            self.results = {}
-            self.points = {}
+        self.results = {}
+        self.points = {}
 
-            if remove_items:
-                self.plot_graph.clear()
-                self.curves = {}
-            else:
-                for _id, desc in self.curves.items():
-                    desc['time'] = []
-                    desc['val'] = []
-                    desc['curve'].setData([], [])
+        if remove_items:
+            self.plot_graph.clear()
+            self.curves = {}
+        else:
+            for _id, desc in self.curves.items():
+                desc['time'] = []
+                desc['val'] = []
+                desc['curve'].setData([], [])
 
     def pause(self):
         if self.timer.isActive():
@@ -672,64 +752,39 @@ class MainWindow(QtWidgets.QMainWindow):
             self.plot_graph.setLabel("left", "value")
             self.plot_graph.setLabel("bottom", "time")
 
-    def read_lines(self):
-        state = 0
-        data = b''
-        packet_time = time.time()
-        while not self.exit_flag.is_set():
-            symbol = self.ser.read(1)
-            # splitter detected
-            if symbol in b'\r\n':
-                if state != 1:
-                    yield state, packet_time, data
-                    data = b''
-                state = 1
-            # collecting data
-            else:
-                if state == 1:
-                    packet_time = time.time()
-                    state = 2
-                data += symbol
+    def get(self):
+        results = {}
+        if self.out_queue:
+            # reading data from queue
+            try:
+                while 1:
+                    packet = self.out_queue.get(False)
+                    if packet is None:
+                        break
 
-    def read_serial(self):
-        is_string_parsing = self.settings_frame.group_box_line_parsing.isChecked()
-        with self.ser:
-            self.ser.reset_input_buffer()
-            # row mode
-            if not is_string_parsing:
-                while not self.exit_flag.is_set():
-                    symbol = self.ser.read(100)
-                    if symbol:
-                        self.NEW_LINE.emit(symbol)
-            # string parsing
-            else:
-                for _full_line, cur_time, row_line in self.read_lines():
-                    strip_line = row_line.strip()
-                    if strip_line:
+                    full_line, packet_time, line = packet
+                    # row data
+                    if not self.settings_frame.group_box_line_parsing.isChecked():
+                        self.NEW_LINE.emit(line)
+                    # splitted data
+                    else:
                         if not self.settings_frame.check_box_show_only_cmd_response.isChecked() or\
-                                strip_line[:2] in [b'RE', b'ER']:
-                            self.NEW_LINE.emit(strip_line + b'\n')
-                        if _full_line:
-                            data = strip_line.split()
+                                line[:2] in [b'RE', b'ER']:
+                            self.NEW_LINE.emit(line + b'\b')
+                        if full_line:
+                            data = line.split()
                             if data:
                                 try:
                                     data = [float(d) for d in data]
-                                    self.put(cur_time, data)
+                                    for index, value in enumerate(data):
+                                        store = results.setdefault(index, [[], []])
+                                        store[0].append(packet_time)
+                                        store[1].append(value)
                                 except ValueError as e:
-                                    print(f'error:{e} line:{row_line}')
-
-    def put(self, cur_time, data):
-        with self.lock:
-            for index, value in enumerate(data):
-                store = self.results.setdefault(index, [[], []])
-                store[0].append(cur_time)
-                store[1].append(value)
-
-    def get(self):
-        with self.lock:
-            res = self.results
-            self.results = {}
-            return res
+                                    print(f'error:{e} line:{line}')
+            except queue.Empty:
+                pass
+        return results
 
     def update(self):
         res = self.get()
@@ -795,7 +850,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         Settings.setValue("window_state", self.saveState())
         Settings.setValue("window_geometry", self.saveGeometry())
-        self.exit_flag.set()
         event.accept()
 
 
