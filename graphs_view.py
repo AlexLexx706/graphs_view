@@ -770,7 +770,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     else:
                         if not self.settings_frame.check_box_show_only_cmd_response.isChecked() or\
                                 line[:2] in [b'RE', b'ER']:
-                            self.NEW_LINE.emit(line + b'\b')
+                            self.NEW_LINE.emit(line + b'\n')
                         if full_line:
                             data = line.split()
                             if data:
