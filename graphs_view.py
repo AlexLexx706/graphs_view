@@ -804,7 +804,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 desc['val'] = desc['val'][-max_len:]
 
                 if 'curve' not in desc:
-                    curve = pyqtgraph.ScatterPlotItem()
+                    curve = pyqtgraph.PlotCurveItem()
                     pen = pyqtgraph.mkPen(
                         self.COLOURS[index % len(self.COLOURS)],
                         width=self.GRAPH_WIDTH)
