@@ -629,24 +629,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show_settings = QtWidgets.QAction("Settings")
         self.show_settings.setCheckable(True)
         self.file_menu.addAction(self.show_settings)
-        self.show_settings.triggered.connect(
-            self.settings_dock_widget.setVisible)
         self.show_settings.toggled.connect(
             self.on_visible_settings_changed)
 
         self.show_console = QtWidgets.QAction("Console")
         self.show_console.setCheckable(True)
         self.file_menu.addAction(self.show_console)
-        self.show_console.triggered.connect(
-            self.console_dock_widget.setVisible)
         self.show_console.toggled.connect(
             self.on_visible_console_changed)
 
         self.show_parameters = QtWidgets.QAction("Parameters")
         self.show_parameters.setCheckable(True)
         self.file_menu.addAction(self.show_parameters)
-        self.show_parameters.triggered.connect(
-            self.parameters_dock_widget.setVisible)
         self.show_parameters.toggled.connect(
             self.on_visible_parameters_changed)
 
@@ -674,7 +668,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         parameters_visible = Settings.value('parameters_visible')
         self.show_parameters.setChecked(
-            int(parameters_visible) if parameters_visible is not None else 1)
+            int(parameters_visible) if parameters_visible is not None else 0)
+        self.on_visible_parameters_changed(self.show_parameters.isChecked())
 
         self.process_port = None
         self.in_queue = None
@@ -682,12 +677,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_visible_settings_changed(self, checked):
         Settings.setValue('settings_visible', int(checked))
+        self.settings_dock_widget.setVisible(int(checked))
 
     def on_visible_console_changed(self, checked):
         Settings.setValue('console_visible', int(checked))
+        self.console_dock_widget.setVisible(int(checked))
 
     def on_visible_parameters_changed(self, checked):
         Settings.setValue('parameters_visible', int(checked))
+        self.parameters_dock_widget.setVisible(int(checked))
 
     def on_clear_graphs(self):
         self.clear(False)
