@@ -86,7 +86,7 @@ class ParametersFrame(QtWidgets.QFrame):
             self.radio_button_select = QtWidgets.QRadioButton(self)
             self.line_edit_template = QtWidgets.QLineEdit(self)
             self.line_edit_template.setText(
-                'set,/controller/heading_pid/p,%f')
+                'set,/controller/heading_pid/p,{}')
             self.line_edit_template.textChanged.connect(self.on_state_changed)
 
             self.double_spin_box_min = QtWidgets.QDoubleSpinBox(self)
