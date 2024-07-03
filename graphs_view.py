@@ -61,7 +61,6 @@ def process_port(in_queue, out_queue, settings):
                             if data:
                                 packet = (r_state, packet_time, data)
                                 out_queue.put(packet)
-                                # time.sleep(0.0001)
                             data = b''
                         r_state = 1
                     # collecting data
@@ -82,10 +81,9 @@ class ParametersFrame(QtWidgets.QFrame):
         value_changed = QtCore.pyqtSignal(str)
         state_changed = QtCore.pyqtSignal()
 
-        def __init__(self):
-            super().__init__()
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
             self.radio_button_select = QtWidgets.QRadioButton(self)
-
             self.line_edit_template = QtWidgets.QLineEdit(self)
             self.line_edit_template.setText(
                 'set,/controller/heading_pid/p,%f')
@@ -126,6 +124,9 @@ class ParametersFrame(QtWidgets.QFrame):
             self.slider.setMaximum(100)
             self.slider.valueChanged.connect(self.on_slider_value_changed)
             self.slider.valueChanged.connect(self.on_state_changed)
+            self.slider.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+                QtWidgets.QSizePolicy.Policy.Preferred)
 
             self.check_box_enable = QtWidgets.QCheckBox("Enable")
             self.check_box_enable.toggled.connect(self.on_state_changed)
@@ -201,8 +202,8 @@ class ParametersFrame(QtWidgets.QFrame):
                 pass
             self.double_spin_box_value.blockSignals(prev_block)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.button_group = QtWidgets.QButtonGroup()
 
         self.app_parameter = QtWidgets.QAction("Add parameter")
@@ -565,7 +566,12 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetFloatable)
         self.parameters_dock_widget.setAllowedAreas(
             QtCore.Qt.AllDockWidgetAreas)
-        self.parameters_dock_widget.setWidget(self.parameters_frame)
+
+        self.scroll_parameters_frame = QtWidgets.QScrollArea()
+        self.scroll_parameters_frame.setWidget(self.parameters_frame)
+        self.scroll_parameters_frame.setWidgetResizable(True)
+
+        self.parameters_dock_widget.setWidget(self.scroll_parameters_frame)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea,
                            self.parameters_dock_widget)
 
@@ -777,7 +783,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                 try:
                                     data = [float(d) for d in data]
                                     for index, value in enumerate(data):
-                                        store = results.setdefault(index, [[], []])
+                                        store = results.setdefault(
+                                            index, [[], []])
                                         store[0].append(packet_time)
                                         store[1].append(value)
                                 except ValueError as e:
