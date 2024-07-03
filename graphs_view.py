@@ -308,9 +308,13 @@ class SettingFrame(QtWidgets.QFrame):
 
         self.spin_box_max_points = QtWidgets.QSpinBox()
         self.spin_box_max_points.setMaximum(2147483647)
-        self.spin_box_max_points.setValue(10000)
+        max_points = Settings.value('max_points')
+        self.spin_box_max_points.setValue(
+            int(max_points) if max_points is not None else 10000)
         self.spin_box_max_points.setToolTip(
             "Maximum number of points displayed on graphs.")
+        self.spin_box_max_points.valueChanged.connect(
+            self.on_max_points_changes)
 
         self.spin_box_max_points.setSizePolicy(
             QtWidgets.QSizePolicy.Minimum,
@@ -373,11 +377,14 @@ class SettingFrame(QtWidgets.QFrame):
         h_box_layout.addWidget(self.push_button_open)
         h_box_layout.addWidget(self.combo_box_speed)
 
+    def on_max_points_changes(self, value):
+        Settings.setValue('max_points', value)
+
     def on_show_only_cmd_response_changes(self, value):
-        Settings.setValue('only_cmd_response', int(value)),
+        Settings.setValue('only_cmd_response', int(value))
 
     def on_port_changed(self, port_path):
-        Settings.setValue('port_path', port_path),
+        Settings.setValue('port_path', port_path)
 
     def on_speed_changed(self, index):
         speed = self.combo_box_speed.itemData(index)
@@ -621,24 +628,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.show_settings = QtWidgets.QAction("Settings")
         self.show_settings.setCheckable(True)
-        self.show_settings.setChecked(True)
         self.file_menu.addAction(self.show_settings)
         self.show_settings.triggered.connect(
             self.settings_dock_widget.setVisible)
+        self.show_settings.toggled.connect(
+            self.on_visible_settings_changed)
 
         self.show_console = QtWidgets.QAction("Console")
         self.show_console.setCheckable(True)
-        self.show_console.setChecked(True)
         self.file_menu.addAction(self.show_console)
         self.show_console.triggered.connect(
             self.console_dock_widget.setVisible)
+        self.show_console.toggled.connect(
+            self.on_visible_console_changed)
 
         self.show_parameters = QtWidgets.QAction("Parameters")
         self.show_parameters.setCheckable(True)
-        self.show_parameters.setChecked(True)
         self.file_menu.addAction(self.show_parameters)
         self.show_parameters.triggered.connect(
             self.parameters_dock_widget.setVisible)
+        self.show_parameters.toggled.connect(
+            self.on_visible_parameters_changed)
 
         self.help_menu = self.menuBar().addMenu("&Help")
         self.action_about = QtWidgets.QAction("About")
@@ -654,9 +664,30 @@ class MainWindow(QtWidgets.QMainWindow):
         if window_geometry:
             self.restoreGeometry(window_geometry)
 
+        settings_visible = Settings.value('settings_visible')
+        self.show_settings.setChecked(
+            int(settings_visible) if settings_visible is not None else 1)
+
+        console_visible = Settings.value('console_visible')
+        self.show_console.setChecked(
+            int(console_visible) if console_visible is not None else 1)
+
+        parameters_visible = Settings.value('parameters_visible')
+        self.show_parameters.setChecked(
+            int(parameters_visible) if parameters_visible is not None else 1)
+
         self.process_port = None
         self.in_queue = None
         self.out_queue = None
+
+    def on_visible_settings_changed(self, checked):
+        Settings.setValue('settings_visible', int(checked))
+
+    def on_visible_console_changed(self, checked):
+        Settings.setValue('console_visible', int(checked))
+
+    def on_visible_parameters_changed(self, checked):
+        Settings.setValue('parameters_visible', int(checked))
 
     def on_clear_graphs(self):
         self.clear(False)
