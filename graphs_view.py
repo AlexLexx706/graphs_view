@@ -202,6 +202,13 @@ class ParametersFrame(QtWidgets.QFrame):
                 pass
             self.double_spin_box_value.blockSignals(prev_block)
 
+    KEYS = {
+        'Up': QtCore.Qt.Key_Up,
+        'Down': QtCore.Qt.Key_Down,
+        'Left': QtCore.Qt.Key_Left,
+        'Right': QtCore.Qt.Key_Right,
+        'Space': QtCore.Qt.Key_Space}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.button_group = QtWidgets.QButtonGroup()
@@ -209,14 +216,53 @@ class ParametersFrame(QtWidgets.QFrame):
         self.h_box_layout = QtWidgets.QHBoxLayout()
         self.v_box_layout.addLayout(self.h_box_layout)
 
+        self.table_widget = QtWidgets.QTableWidget(0, 3, self)
+        self.table_widget.setHorizontalHeaderItem(
+            0, QtWidgets.QTableWidgetItem('cmd'))
+        self.table_widget.setHorizontalHeaderItem(
+            1, QtWidgets.QTableWidgetItem('key'))
+        self.table_widget.setHorizontalHeaderItem(
+            2, QtWidgets.QTableWidgetItem('enable'))
+        self.add_key_parameter_action = QtWidgets.QAction("Add")
+        self.remove_key_parameter_action = QtWidgets.QAction("Remove")
+        self.table_widget.addAction(self.add_key_parameter_action)
+        self.table_widget.addAction(self.remove_key_parameter_action)
+        self.table_widget.setContextMenuPolicy(
+            QtCore.Qt.ContextMenuPolicy.ActionsContextMenu)
+        self.table_widget.setSelectionMode(
+            QtWidgets.QAbstractItemView.SingleSelection)
+        self.add_key_parameter_action.triggered.connect(
+            self.on_add_key_parameter)
+        self.remove_key_parameter_action.triggered.connect(
+            self.on_remove_key_parameter)
+        self.table_widget.itemChanged.connect(self.on_key_parameter_changed)
+        key_parameters = Settings.value("key_parameters")
+        if key_parameters:
+            for desc in key_parameters:
+                self.add_key_parameter(
+                    desc['cmd'], desc['key'], desc['enable'])
+        self.key_row = {}
+
+        self.v_box_layout.addWidget(self.table_widget)
+
         self.button_add_parameter = QtWidgets.QPushButton('Add')
         self.button_add_parameter.clicked.connect(self.add_parameter)
 
         self.button_remove_parameter = QtWidgets.QPushButton('Remove')
         self.button_remove_parameter.clicked.connect(self.on_remove_parameter)
 
+        self.check_box_key_map = QtWidgets.QCheckBox('Show key map')
+        self.check_box_key_map.toggled.connect(
+            self.on_check_box_key_map_changed)
+        value = Settings.value('key_map_visible')
+        self.check_box_key_map.setChecked(
+            int(value) if value is not None else 0)
+        self.on_check_box_key_map_changed(self.check_box_key_map.isChecked())
+
         self.h_box_layout.addWidget(self.button_add_parameter)
         self.h_box_layout.addWidget(self.button_remove_parameter)
+        self.h_box_layout.addWidget(self.check_box_key_map)
+
         self.h_box_layout.addSpacerItem(QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Expanding))
 
@@ -228,6 +274,74 @@ class ParametersFrame(QtWidgets.QFrame):
         if parameters is not None:
             for state in parameters:
                 self.create_parameter().set_state(state)
+
+    def on_keyboard_pressed(self, key):
+        row = self.key_row.get(key)
+        if row is not None:
+            cmd = self.table_widget.item(row, 0).text()
+            enable = self.table_widget.item(row, 2).checkState()
+            if enable:
+                self.parameter_changed.emit(cmd)
+
+    def on_add_key_parameter(self):
+        self.add_key_parameter("xxx", '0', False)
+
+    def add_key_parameter(self, cmd, key, checked):
+        row = self.table_widget.rowCount()
+        self.table_widget.setRowCount(row + 1)
+
+        item = QtWidgets.QTableWidgetItem(cmd)
+        item.setFlags(
+            QtCore.Qt.ItemFlag.ItemIsSelectable |
+            QtCore.Qt.ItemFlag.ItemIsEditable |
+            QtCore.Qt.ItemFlag.ItemIsEnabled)
+        self.table_widget.setItem(row, 0, item)
+
+        item = QtWidgets.QTableWidgetItem(key)
+        item.setFlags(
+            QtCore.Qt.ItemFlag.ItemIsSelectable |
+            QtCore.Qt.ItemFlag.ItemIsEditable |
+            QtCore.Qt.ItemFlag.ItemIsEnabled)
+
+        combo_box = QtWidgets.QComboBox()
+        combo_box.currentIndexChanged.connect(self.on_key_parameter_changed)
+        for text, value in self.KEYS.items():
+            combo_box.addItem(text, value)
+        combo_box.setCurrentIndex(combo_box.findData(key))
+        self.table_widget.setCellWidget(row, 1, combo_box)
+
+        item = QtWidgets.QTableWidgetItem()
+        item.setCheckState(checked)
+        item.setFlags(
+            QtCore.Qt.ItemFlag.ItemIsSelectable |
+            QtCore.Qt.ItemFlag.ItemIsUserCheckable |
+            QtCore.Qt.ItemFlag.ItemIsEnabled)
+        self.table_widget.setItem(row, 2, item)
+        self.on_key_parameter_changed()
+
+    def on_remove_key_parameter(self):
+        self.table_widget.removeRow(self.table_widget.currentRow())
+        self.on_key_parameter_changed()
+
+    def on_key_parameter_changed(self):
+        rows_desc = []
+        self.key_row = {}
+        for row in range(self.table_widget.rowCount()):
+            cmd_item = self.table_widget.item(row, 0)
+            key_item = self.table_widget.cellWidget(row, 1)
+            enable_item = self.table_widget.item(row, 2)
+            if cmd_item and key_item and enable_item:
+                desc = {
+                    'cmd': cmd_item.text(),
+                    'key': key_item.currentData(),
+                    'enable': enable_item.checkState()}
+                self.key_row[key_item.currentData()] = row
+                rows_desc.append(desc)
+        Settings.setValue("key_parameters", rows_desc)
+
+    def on_check_box_key_map_changed(self, value):
+        Settings.setValue("key_map_visible", int(value))
+        self.table_widget.setVisible(value)
 
     def create_parameter(self):
         param = self.ParameterFrame()
@@ -551,7 +665,14 @@ class MainWindow(QtWidgets.QMainWindow):
         QtGui.QColor(QtCore.Qt.darkYellow)]
 
     UPDATE_RATE = 80  # ms
-    NEW_LINE = QtCore.pyqtSignal(object)
+    NEW_LINE_SIGNAL = QtCore.pyqtSignal(object)
+    CONTROL_KEYS_SIGNAL = QtCore.pyqtSignal(int)
+    CONTROL_KEYS = [
+        QtCore.Qt.Key_Up,
+        QtCore.Qt.Key_Down,
+        QtCore.Qt.Key_Left,
+        QtCore.Qt.Key_Right,
+        QtCore.Qt.Key_Space]
 
     def __init__(self):
         super().__init__()
@@ -559,6 +680,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.points = {}
 
         self.plot_graph = pyqtgraph.PlotWidget(self)
+        self.plot_graph.installEventFilter(self)
         self.setCentralWidget(self.plot_graph)
         self.plot_graph.setLabel("left", "value")
         self.plot_graph.setLabel("bottom", "time")
@@ -567,6 +689,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.legend = self.plot_graph.addLegend()
 
         self.parameters_frame = ParametersFrame()
+        self.CONTROL_KEYS_SIGNAL.connect(
+            self.parameters_frame.on_keyboard_pressed)
         self.parameters_dock_widget = QtWidgets.QDockWidget(
             "Parameters", self)
         self.parameters_dock_widget.setObjectName("parameters_dock_widget")
@@ -611,7 +735,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowState(QtCore.Qt.WindowMaximized)
 
         self.console_frame = ConsoleFrame()
-        self.NEW_LINE.connect(self.console_frame.on_new_line)
+        self.NEW_LINE_SIGNAL.connect(self.console_frame.on_new_line)
         self.console_dock_widget = QtWidgets.QDockWidget("Console", self)
         self.console_dock_widget.setObjectName("console_dock_widget")
         self.console_dock_widget.setFeatures(
@@ -676,6 +800,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.process_port = None
         self.in_queue = None
         self.out_queue = None
+
+    def eventFilter(self, watched, event):
+        if event.type() == QtCore.QEvent.KeyPress:
+            if event.key() in self.CONTROL_KEYS:
+                self.CONTROL_KEYS_SIGNAL.emit(event.key())
+        return False
 
     def on_visible_settings_changed(self, checked):
         Settings.setValue('settings_visible', int(checked))
@@ -802,12 +932,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     full_line, packet_time, line = packet
                     # row data
                     if not self.settings_frame.group_box_line_parsing.isChecked():
-                        self.NEW_LINE.emit(line)
+                        self.NEW_LINE_SIGNAL.emit(line)
                     # splitted data
                     else:
                         if not self.settings_frame.check_box_show_only_cmd_response.isChecked() or\
                                 line[:2] in [b'RE', b'ER']:
-                            self.NEW_LINE.emit(line + b'\n')
+                            self.NEW_LINE_SIGNAL.emit(line + b'\n')
                         if full_line:
                             data = line.split()
                             if data:
