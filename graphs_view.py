@@ -237,12 +237,12 @@ class ParametersFrame(QtWidgets.QFrame):
             self.on_remove_key_parameter)
         self.table_widget.itemChanged.connect(self.on_key_parameter_changed)
         key_parameters = Settings.value("key_parameters")
+        self.key_row = {}
         if key_parameters:
             for desc in key_parameters:
                 self.add_key_parameter(
                     desc['cmd'], desc['key'], desc['enable'])
-        self.key_row = {}
-
+        self.table_widget.resizeColumnsToContents()
         self.v_box_layout.addWidget(self.table_widget)
 
         self.button_add_parameter = QtWidgets.QPushButton('Add')
@@ -376,7 +376,8 @@ class ParametersFrame(QtWidgets.QFrame):
             param = self.v_box_layout.itemAt(i)
             if isinstance(param, QtWidgets.QWidgetItem):
                 param = param.widget()
-                state.append(param.get_state())
+                if isinstance(param, self.ParameterFrame):
+                    state.append(param.get_state())
         Settings.setValue("parameters", state)
 
 
