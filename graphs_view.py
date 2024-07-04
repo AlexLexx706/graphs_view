@@ -205,18 +205,20 @@ class ParametersFrame(QtWidgets.QFrame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.button_group = QtWidgets.QButtonGroup()
-
-        self.app_parameter = QtWidgets.QAction("Add parameter")
-        self.addAction(self.app_parameter)
-        self.app_parameter.triggered.connect(self.add_parameter)
-
-        self.remove_parameter = QtWidgets.QAction("Remove parameter")
-        self.addAction(self.remove_parameter)
-        self.remove_parameter.triggered.connect(self.on_remove_parameter)
-
-        self.setContextMenuPolicy(
-            QtCore.Qt.ContextMenuPolicy.ActionsContextMenu)
         self.v_box_layout = QtWidgets.QVBoxLayout(self)
+        self.h_box_layout = QtWidgets.QHBoxLayout()
+        self.v_box_layout.addLayout(self.h_box_layout)
+
+        self.button_add_parameter = QtWidgets.QPushButton('Add')
+        self.button_add_parameter.clicked.connect(self.add_parameter)
+
+        self.button_remove_parameter = QtWidgets.QPushButton('Remove')
+        self.button_remove_parameter.clicked.connect(self.on_remove_parameter)
+
+        self.h_box_layout.addWidget(self.button_add_parameter)
+        self.h_box_layout.addWidget(self.button_remove_parameter)
+        self.h_box_layout.addSpacerItem(QtWidgets.QSpacerItem(
+            0, 0, QtWidgets.QSizePolicy.Expanding))
 
         self.spacer = QtWidgets.QSpacerItem(
             0, 0, vPolicy=QtWidgets.QSizePolicy.Expanding)
