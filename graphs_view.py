@@ -505,7 +505,6 @@ class SettingFrame(QtWidgets.QFrame):
         self.line_edit_re.textChanged.connect(self.on_line_edit_re_changed)
 
         use_re = Settings.value('use_re')
-        use_re = 1
         self.check_box_re.setChecked(int(use_re) if use_re is not None else 0)
 
         _re = Settings.value('re')
