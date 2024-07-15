@@ -12,6 +12,7 @@ from serial.tools import list_ports
 import types
 import multiprocessing
 import queue
+import re
 
 Settings = QtCore.QSettings('alexlexx', 'graph_view')
 
@@ -467,8 +468,11 @@ class SettingFrame(QtWidgets.QFrame):
         self.check_box_show_only_cmd_response.setChecked(
             int(value) if value is not None else 0)
 
-        h_box_layout_graphs = QtWidgets.QHBoxLayout(
+        group_box_v_box_layout = QtWidgets.QVBoxLayout(
             self.group_box_line_parsing)
+        h_box_layout_graphs = QtWidgets.QHBoxLayout()
+        group_box_v_box_layout.addLayout(h_box_layout_graphs)
+
         v_box_layout.addWidget(self.group_box_line_parsing)
         v_box_layout.addSpacerItem(QtWidgets.QSpacerItem(
             0, 0, vPolicy=QtWidgets.QSizePolicy.Expanding))
@@ -482,6 +486,32 @@ class SettingFrame(QtWidgets.QFrame):
         h_box_layout_graphs.addSpacerItem(QtWidgets.QSpacerItem(
             0, 0, QtWidgets.QSizePolicy.Expanding))
 
+        h_box_layout_graphs_2 = QtWidgets.QHBoxLayout()
+        group_box_v_box_layout.addLayout(h_box_layout_graphs_2)
+        self.check_box_re = QtWidgets.QCheckBox("RE")
+        self.check_box_re.setToolTip(
+            "Allows the use of regular expressions (Python's re.match) "
+            "for extracting graph data from a line.\n"
+            "For example, to extract data from the line 'x:232 q:123.3',\n"
+            "you need to use this regex: 'x:(\d+)\s+q:(\d+)'.\n\n"
+            "Also allows specifying a \"time\" parameter for displaying data on the horizontal axis:\n"
+            "For example, to extract the time parameter and data from the given line: 'x:456 y:789 z:234 time:123',\n"
+            "you need to use this expression: 'x:(\d+)\s+y:(\d+)\s+z:(\d+)\s+time:(?P<time>\d+)'.")
+        self.line_edit_re = QtWidgets.QLineEdit(self)
+        self.line_edit_re.setEnabled(False)
+        h_box_layout_graphs_2.addWidget(self.check_box_re)
+        h_box_layout_graphs_2.addWidget(self.line_edit_re)
+        self.check_box_re.toggled.connect(self.on_check_box_re_changed)
+        self.line_edit_re.textChanged.connect(self.on_line_edit_re_changed)
+
+        use_re = Settings.value('use_re')
+        use_re = 1
+        self.check_box_re.setChecked(int(use_re) if use_re is not None else 0)
+
+        _re = Settings.value('re')
+        self.line_edit_re.setText(
+            _re if _re is not None else r'(?P<time>[-+]?\d*\.*\d+)\s+([-+]?\d*\.*\d+)\s+([-+]?\d*\.*\d+)\s+([-+]?\d*\.*\d+)')
+
         self.combo_box_port_path.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Fixed)
@@ -493,6 +523,13 @@ class SettingFrame(QtWidgets.QFrame):
         h_box_layout.addWidget(self.combo_box_port_path)
         h_box_layout.addWidget(self.push_button_open)
         h_box_layout.addWidget(self.combo_box_speed)
+
+    def on_check_box_re_changed(self, value):
+        Settings.setValue('use_re', value)
+        self.line_edit_re.setEnabled(int(value))
+
+    def on_line_edit_re_changed(self, text):
+        Settings.setValue('re', text)
 
     def on_max_points_changes(self, value):
         Settings.setValue('max_points', value)
@@ -840,6 +877,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_open_port(self):
         if not self.process_port:
             try:
+                if self.settings_frame.check_box_re.isChecked():
+                    try:
+                        _re = self.settings_frame.line_edit_re.text().encode()
+                        self.line_pattern = re.compile(_re)
+                        self.time_index = self.line_pattern.groupindex.get(
+                            "time")
+                    except re.error as e:
+                        QtWidgets.QMessageBox.warning(
+                            self, "Warning: can't compile regexp", str(e))
+                        return
+                else:
+                    self.line_pattern = None
+
                 path = self.settings_frame.combo_box_port_path.currentText()
                 baudrate = self.settings_frame.combo_box_speed.currentData()
                 in_queue = multiprocessing.Queue()
@@ -941,7 +991,17 @@ class MainWindow(QtWidgets.QMainWindow):
                                 line[:2] in [b'RE', b'ER']:
                             self.NEW_LINE_SIGNAL.emit(line + b'\n')
                         if full_line:
-                            data = line.split()
+                            if self.line_pattern:
+                                match = self.line_pattern.match(line)
+                                data = None
+                                if match:
+                                    data = match.groups()
+                                    if self.time_index is not None:
+                                        packet_time = float(
+                                            match.group(self.time_index))
+                            else:
+                                data = line.split()
+
                             if data:
                                 try:
                                     data = [float(d) for d in data]
