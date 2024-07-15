@@ -524,8 +524,8 @@ class SettingFrame(QtWidgets.QFrame):
         h_box_layout.addWidget(self.combo_box_speed)
 
     def on_check_box_re_changed(self, value):
-        Settings.setValue('use_re', value)
-        self.line_edit_re.setEnabled(int(value))
+        Settings.setValue('use_re', int(value))
+        self.line_edit_re.setEnabled(value)
 
     def on_line_edit_re_changed(self, text):
         Settings.setValue('re', text)
