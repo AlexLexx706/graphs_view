@@ -899,6 +899,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 desc['time'] = []
                 desc['val'] = []
                 desc['curve'].setData([], [])
+                desc['scatter'].setData([], [])
 
     def pause(self):
         if self.timer.isActive():
@@ -974,19 +975,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 if 'curve' not in desc:
                     curve = pyqtgraph.PlotCurveItem()
+                    scatter = pyqtgraph.ScatterPlotItem()
                     pen = pyqtgraph.mkPen(
                         self.COLOURS[index % len(self.COLOURS)],
                         width=self.GRAPH_WIDTH)
                     curve.setPen(pen)
+                    scatter.setPen(pen)
+
                     self.legend.addItem(
                         curve,
                         f"{index}")
 
+                    self.legend.addItem(
+                        scatter,
+                        f"{index}")
+
                     self.plot_graph.addItem(curve)
+                    self.plot_graph.addItem(scatter)
                     desc['curve'] = curve
-                else:
-                    curve = desc['curve']
-                curve.setData(desc['time'], desc['val'])
+                    desc['scatter'] = scatter
+                desc['curve'].setData(desc['time'], desc['val'])
+                desc['scatter'].setData(desc['time'], desc['val'])
         # draw points
         else:
             # use first and second value as x, y coordinates
