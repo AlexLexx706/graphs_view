@@ -711,6 +711,8 @@ class MainWindow(QtWidgets.QMainWindow):
         QtCore.Qt.Key_Right,
         QtCore.Qt.Key_Space]
 
+    SHOW_POINTS = False
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Graph View")
@@ -948,7 +950,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 desc['time'] = []
                 desc['val'] = []
                 desc['curve'].setData([], [])
-                desc['scatter'].setData([], [])
+                if self.SHOW_POINTS:
+                    desc['scatter'].setData([], [])
 
     def pause(self):
         if self.timer.isActive():
@@ -1034,27 +1037,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 if 'curve' not in desc:
                     curve = pyqtgraph.PlotCurveItem()
-                    scatter = pyqtgraph.ScatterPlotItem()
                     pen = pyqtgraph.mkPen(
                         self.COLOURS[index % len(self.COLOURS)],
                         width=self.GRAPH_WIDTH)
                     curve.setPen(pen)
-                    scatter.setPen(pen)
-
                     self.legend.addItem(
                         curve,
                         f"{index}")
-
-                    self.legend.addItem(
-                        scatter,
-                        f"{index}")
-
                     self.plot_graph.addItem(curve)
-                    self.plot_graph.addItem(scatter)
                     desc['curve'] = curve
-                    desc['scatter'] = scatter
+
+                    if self.SHOW_POINTS:
+                        scatter = pyqtgraph.ScatterPlotItem()
+                        scatter.setPen(pen)
+                        self.legend.addItem(
+                            scatter,
+                            f"{index}")
+                        self.plot_graph.addItem(scatter)
+                        desc['scatter'] = scatter
+
                 desc['curve'].setData(desc['time'], desc['val'])
-                desc['scatter'].setData(desc['time'], desc['val'])
+                if self.SHOW_POINTS:
+                    desc['scatter'].setData(desc['time'], desc['val'])
         # draw points
         else:
             # use first and second value as x, y coordinates
