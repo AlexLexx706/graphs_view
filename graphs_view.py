@@ -94,6 +94,7 @@ class ParametersFrame(QtWidgets.QFrame):
             self.double_spin_box_min.setMinimum(-10000000)
             self.double_spin_box_min.setMaximum(10000000)
             self.double_spin_box_min.setValue(0)
+            self.double_spin_box_min.setDecimals(4)
             self.double_spin_box_min.valueChanged.connect(
                 self.on_state_changed)
 
@@ -101,6 +102,7 @@ class ParametersFrame(QtWidgets.QFrame):
             self.double_spin_box_max.setMinimum(-10000000)
             self.double_spin_box_max.setMaximum(10000000)
             self.double_spin_box_max.setValue(1000)
+            self.double_spin_box_max.setDecimals(4)
             self.double_spin_box_max.valueChanged.connect(
                 self.on_state_changed)
 
@@ -111,6 +113,7 @@ class ParametersFrame(QtWidgets.QFrame):
                 self.double_spin_box_max.value())
             self.double_spin_box_value.setValue(0)
             self.double_spin_box_value.setSingleStep(0.01)
+            self.double_spin_box_value.setDecimals(4)
             self.double_spin_box_min.valueChanged.connect(
                 self.double_spin_box_value.setMinimum)
             self.double_spin_box_max.valueChanged.connect(
