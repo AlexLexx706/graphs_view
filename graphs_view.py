@@ -91,16 +91,16 @@ class ParametersFrame(QtWidgets.QFrame):
             self.line_edit_template.textChanged.connect(self.on_state_changed)
 
             self.double_spin_box_min = QtWidgets.QDoubleSpinBox(self)
-            self.double_spin_box_min.setMinimum(-10000000)
-            self.double_spin_box_min.setMaximum(10000000)
+            self.double_spin_box_min.setMinimum(-1000000000)
+            self.double_spin_box_min.setMaximum(1000000000)
             self.double_spin_box_min.setValue(0)
             self.double_spin_box_min.setDecimals(4)
             self.double_spin_box_min.valueChanged.connect(
                 self.on_state_changed)
 
             self.double_spin_box_max = QtWidgets.QDoubleSpinBox(self)
-            self.double_spin_box_max.setMinimum(-10000000)
-            self.double_spin_box_max.setMaximum(10000000)
+            self.double_spin_box_max.setMinimum(-1000000000)
+            self.double_spin_box_max.setMaximum(1000000000)
             self.double_spin_box_max.setValue(1000)
             self.double_spin_box_max.setDecimals(4)
             self.double_spin_box_max.valueChanged.connect(
