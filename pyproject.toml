@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "graphs-view"
+version = "0.0.1"
+dependencies = [
+"PyQt5>=5.15.11",
+"pyqtgraph>=0.13.7",
+"pyserial>=3.5",
+]
+requires-python = ">=3.8"
+authors = [
+  {name = "Alexey Kalmykov", email = "alexlexx1@gmail.com"},
+]
+
+description = "Visualization of graphs from strings"
+readme = "readme.md"
+license = {file = "LICENSE.txt"}
+keywords = ["graps", "view"]
+classifiers = [
+  "Programming Language :: Python"
+]
+
+
+[project.urls]
+Homepage = "https://alexlexx.com"
+Documentation = "https://github.com/AlexLexx706/graphs_view"
+Repository = "https://github.com/AlexLexx706/graphs_view"
+
+[project.gui-scripts]
+graphs_view = "graphs_view.main:main"
