@@ -8,6 +8,7 @@ import types
 import time
 import threading
 import signal
+import socket
 from PyQt5 import QtWidgets, QtCore, QtGui
 import pyqtgraph
 import serial
@@ -16,9 +17,8 @@ from .console_frame import ConsoleFrame
 from .settings_frame import SettingFrame
 from .parameters_frame import ParametersFrame
 
-
-
-def process_port(in_queue, out_queue, settings):
+# SERIAL PORT READER
+def process_port_serial(in_queue, out_queue, settings):
     try:
         with serial.Serial(**settings['serial']) as ser:
             is_string_parsing = settings['parsing_mode']
@@ -75,6 +75,79 @@ def process_port(in_queue, out_queue, settings):
     finally:
         out_queue.put(None)
 
+# PROCESS PORT UDP
+
+
+def process_port_udp(in_queue, out_queue, settings):
+    try:
+        # Setup UDP socket
+        udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp_socket.bind((
+            settings['udp']['bind_ip'],
+            settings['udp']['bind_port']))
+        udp_socket.settimeout(settings['udp']['timeout'])
+
+        # If sending data, set up destination IP and port
+        dest_ip = settings['udp']['dest_ip']
+        dest_port = settings['udp']['dest_port']
+
+        is_string_parsing = settings['parsing_mode']
+        out_queue.put((0, time.time(), b''))
+        state = types.SimpleNamespace(stop=False)
+
+        def send_proc():
+            try:
+                while 1:
+                    data = in_queue.get()
+                    # exit
+                    if not data:
+                        break
+                    udp_socket.sendto(data, (dest_ip, dest_port))
+            finally:
+                state.stop = True
+
+        send_thread = threading.Thread(target=send_proc)
+        send_thread.start()
+
+        r_state = 0
+        # row mode
+        if not is_string_parsing:
+            while not state.stop:
+                packet, __addr = udp_socket.recvfrom(1024)
+                packet_time = time.time()
+                if packet:
+                    out_queue.put((r_state, packet_time, packet))
+                    r_state = 1
+        # string parsing
+        else:
+            data = b''
+            packet_time = time.time()
+            while not state.stop:
+                try:
+                    packet, __addr = udp_socket.recvfrom(1024)
+                    for symbol in packet:
+                        # splitter detected
+                        if symbol in b'\r\n':
+                            if r_state != 1:
+                                data = data.strip()
+                                if data:
+                                    packet = (r_state, packet_time, data)
+                                    out_queue.put(packet)
+                                data = b''
+                            r_state = 1
+                        # collecting data
+                        else:
+                            if r_state == 1:
+                                packet_time = time.time()
+                                r_state = 2
+                            data += symbol
+                except TimeoutError:
+                    pass
+        send_thread.join()
+    finally:
+        out_queue.put(None)
+        udp_socket.close()
+
 
 class GraphsView(QtWidgets.QMainWindow):
     TIMEOUT = 0.5
@@ -110,6 +183,7 @@ class GraphsView(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
+
         self.setWindowTitle("Graph View")
         self.points = {}
 
@@ -144,7 +218,7 @@ class GraphsView(QtWidgets.QMainWindow):
 
         self.settings_frame = SettingFrame()
         self.settings_dock_widget = QtWidgets.QDockWidget(
-            "Port settings", self)
+            "Settings", self)
         self.settings_dock_widget.setObjectName("settings_dock_widget")
         self.settings_dock_widget.setFeatures(
             QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable |
@@ -155,7 +229,10 @@ class GraphsView(QtWidgets.QMainWindow):
         self.addDockWidget(QtCore.Qt.TopDockWidgetArea,
                            self.settings_dock_widget)
 
-        self.settings_frame.push_button_open.clicked.connect(self.on_open_port)
+        self.settings_frame.push_button_open.clicked.connect(
+            self.on_open_port_serial)
+        self.settings_frame.push_button_open_udp.clicked.connect(
+            self.on_open_port_udp)
         self.settings_frame.push_button_clear.clicked.connect(
             self.on_clear_graphs)
         self.settings_frame.push_button_pause.clicked.connect(self.pause)
@@ -270,7 +347,7 @@ class GraphsView(QtWidgets.QMainWindow):
             "Alexey Kalmykov\n"
             "alexlexx1@gmail.com")
 
-    def on_open_port(self):
+    def on_open_port_serial(self):
         if not self.process_port:
             try:
                 if self.settings_frame.check_box_re.isChecked():
@@ -297,9 +374,10 @@ class GraphsView(QtWidgets.QMainWindow):
                         'timeout': self.TIMEOUT},
                     'parsing_mode': self.settings_frame.group_box_line_parsing.isChecked()}
                 proc = multiprocessing.Process(
-                    target=process_port,
+                    target=process_port_serial,
                     args=(in_queue, out_queue, settings))
                 proc.start()
+
                 res = out_queue.get()
 
                 # finished process
@@ -331,6 +409,69 @@ class GraphsView(QtWidgets.QMainWindow):
             self.settings_frame.push_button_open.setText("open")
             self.settings_frame.combo_box_port_path.setEnabled(True)
             self.settings_frame.combo_box_speed.setEnabled(True)
+            self.console_frame.set_cmd_queue(None)
+
+    def on_open_port_udp(self):
+        if not self.process_port:
+            try:
+                if self.settings_frame.check_box_re.isChecked():
+                    try:
+                        _re = self.settings_frame.line_edit_re.text().encode()
+                        self.line_pattern = re.compile(_re)
+                        self.time_index = self.line_pattern.groupindex.get(
+                            "time")
+                    except re.error as e:
+                        QtWidgets.QMessageBox.warning(
+                            self, "Warning: can't compile regexp", str(e))
+                        return
+                else:
+                    self.line_pattern = None
+
+                path = self.settings_frame.combo_box_port_path.currentText()
+                baudrate = self.settings_frame.combo_box_speed.currentData()
+                in_queue = multiprocessing.Queue()
+                out_queue = multiprocessing.Queue()
+                settings = {
+                    'udp': {
+                        'timeout':self.TIMEOUT,
+                        'bind_ip': self.settings_frame.line_edit_udp_bind_ip.text(),
+                        'bind_port': int(self.settings_frame.line_edit_udp_bind_port.text()),
+                        'dest_ip': self.settings_frame.line_edit_udp_dest_ip.text(),
+                        'dest_port': int(self.settings_frame.line_edit_udp_dest_port.text())},
+
+                    'parsing_mode': self.settings_frame.group_box_line_parsing.isChecked()}
+                proc = multiprocessing.Process(
+                    target=process_port_udp,
+                    args=(in_queue, out_queue, settings))
+                proc.start()
+
+                res = out_queue.get()
+
+                # finished process
+                if not res:
+                    proc.join()
+                    return
+
+                self.process_port = proc
+                self.in_queue = in_queue
+                self.out_queue = out_queue
+
+                self.timer.start(self.UPDATE_RATE)
+                self.settings_frame.push_button_pause.setText("Pause")
+                self.clear()
+                self.settings_frame.push_button_open_udp.setText("close")
+                self.console_frame.set_cmd_queue(self.in_queue)
+            except serial.serialutil.SerialException as e:
+                QtWidgets.QMessageBox.warning(
+                    self, "Warning", str(e))
+        else:
+            self.in_queue.put(None)
+            self.process_port.join()
+            self.process_port = None
+            self.in_queue = None
+            self.out_queue = None
+
+            self.settings_frame.push_button_open_udp.setText("Open UDP")
             self.console_frame.set_cmd_queue(None)
 
     def clear(self, remove_items=True):
@@ -487,6 +628,7 @@ class GraphsView(QtWidgets.QMainWindow):
         Settings.setValue("window_state", self.saveState())
         Settings.setValue("window_geometry", self.saveGeometry())
         event.accept()
+
 
 def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
