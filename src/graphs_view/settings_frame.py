@@ -10,6 +10,8 @@ from .settings import Settings
 class SettingFrame(QtWidgets.QFrame):
     def __init__(self):
         super().__init__()
+        
+        # SERIAL PORT UI ELEMENTS -------------------------------------------------------------------
         self.combo_box_port_path = QtWidgets.QComboBox()
         self.combo_box_port_path.setToolTip("Path to the COM port file")
         for desc in list_ports.comports():
@@ -37,6 +39,19 @@ class SettingFrame(QtWidgets.QFrame):
             self.combo_box_speed.findData(speed))
         self.combo_box_speed.currentIndexChanged.connect(self.on_speed_changed)
 
+        # UDP SETTINGS UI ELEMENTS --------------------------------------------------------------------
+        self.line_edit_udp_bind_ip = QtWidgets.QLineEdit("127.0.0.1")
+        self.line_edit_udp_bind_ip.setToolTip("UDP Bind IP address")
+        self.line_edit_udp_bind_port = QtWidgets.QLineEdit("5005")
+        self.line_edit_udp_bind_port.setToolTip("UDP Bind Port")
+        self.line_edit_udp_dest_ip = QtWidgets.QLineEdit("127.0.0.1")
+        self.line_edit_udp_dest_ip.setToolTip("UDP Destination IP address")
+        self.line_edit_udp_dest_port = QtWidgets.QLineEdit("5006")
+        self.line_edit_udp_dest_port.setToolTip("UDP Destination Port")
+        self.push_button_open_udp = QtWidgets.QPushButton("Open UDP")
+        self.push_button_open_udp.setToolTip("Open/Close the UDP connection.")
+        
+        # LINE PARSING UI ELEMMENTS -------------------------------------------------------------------
         self.group_box_line_parsing = QtWidgets.QGroupBox(self)
         self.group_box_line_parsing.setTitle('Line parsing')
         self.group_box_line_parsing.setToolTip(
@@ -63,10 +78,25 @@ class SettingFrame(QtWidgets.QFrame):
             QtWidgets.QSizePolicy.Minimum,
             QtWidgets.QSizePolicy.Fixed)
 
+        # LAYOUT FOR SERIAL SETUP ---------------------------------------------------------------------
         v_box_layout = QtWidgets.QVBoxLayout(self)
         h_box_layout = QtWidgets.QHBoxLayout()
         v_box_layout.addLayout(h_box_layout)
 
+        # LAYOUT FOR UDP SETUP ------------------------------------------------------------------------
+        udp_layout = QtWidgets.QVBoxLayout()
+        udp_layout.addWidget(QtWidgets.QLabel("UDP Bind IP:"))
+        udp_layout.addWidget(self.line_edit_udp_bind_ip)
+        udp_layout.addWidget(QtWidgets.QLabel("UDP Bind Port:"))
+        udp_layout.addWidget(self.line_edit_udp_bind_port)
+        udp_layout.addWidget(QtWidgets.QLabel("UDP Destination IP:"))
+        udp_layout.addWidget(self.line_edit_udp_dest_ip)
+        udp_layout.addWidget(QtWidgets.QLabel("UDP Destination Port:"))
+        udp_layout.addWidget(self.line_edit_udp_dest_port)
+        udp_layout.addWidget(self.push_button_open_udp)
+        
+        v_box_layout.addLayout(udp_layout)      
+        
         self.push_button_clear = QtWidgets.QPushButton("Clear")
         self.push_button_clear.setToolTip(
             "Delete all data displayed on the graphs.")
@@ -93,14 +123,12 @@ class SettingFrame(QtWidgets.QFrame):
         self.check_box_show_only_cmd_response.setChecked(
             int(value) if value is not None else 0)
 
-        group_box_v_box_layout = QtWidgets.QVBoxLayout(
-            self.group_box_line_parsing)
+        group_box_v_box_layout = QtWidgets.QVBoxLayout(self.group_box_line_parsing)
         h_box_layout_graphs = QtWidgets.QHBoxLayout()
         group_box_v_box_layout.addLayout(h_box_layout_graphs)
 
         v_box_layout.addWidget(self.group_box_line_parsing)
-        v_box_layout.addSpacerItem(QtWidgets.QSpacerItem(
-            0, 0, vPolicy=QtWidgets.QSizePolicy.Expanding))
+        v_box_layout.addSpacerItem(QtWidgets.QSpacerItem(0, 0, vPolicy=QtWidgets.QSizePolicy.Expanding))
 
         h_box_layout_graphs.addWidget(QtWidgets.QLabel("Max points:"))
         h_box_layout_graphs.addWidget(self.spin_box_max_points)

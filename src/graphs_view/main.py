@@ -10,7 +10,7 @@ def main():
     app = QtWidgets.QApplication([])
     graphs_view = GraphsView()
     graphs_view.show()
-    app.exec()
+    app.exec() 
 
 
 if __name__ == "__main__":
