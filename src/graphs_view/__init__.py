@@ -6,7 +6,8 @@ import queue
 import re
 import types
 import time
-from PyQt5 import QtCore
+import threading
+import signal
 from PyQt5 import QtWidgets, QtCore, QtGui
 import pyqtgraph
 import serial
@@ -14,6 +15,7 @@ from .settings import Settings
 from .console_frame import ConsoleFrame
 from .settings_frame import SettingFrame
 from .parameters_frame import ParametersFrame
+
 
 
 def process_port(in_queue, out_queue, settings):
@@ -292,7 +294,7 @@ class GraphsView(QtWidgets.QMainWindow):
                     'serial': {
                         'port': path,
                         'baudrate': baudrate,
-                        'TIMEOUT': self.TIMEOUT},
+                        'timeout': self.TIMEOUT},
                     'parsing_mode': self.settings_frame.group_box_line_parsing.isChecked()}
                 proc = multiprocessing.Process(
                     target=process_port,
@@ -485,3 +487,10 @@ class GraphsView(QtWidgets.QMainWindow):
         Settings.setValue("window_state", self.saveState())
         Settings.setValue("window_geometry", self.saveGeometry())
         event.accept()
+
+def main():
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    app = QtWidgets.QApplication([])
+    graphs_view = GraphsView()
+    graphs_view.show()
+    app.exec()

@@ -30,4 +30,4 @@ Documentation = "https://github.com/AlexLexx706/graphs_view"
 Repository = "https://github.com/AlexLexx706/graphs_view"
 
 [project.gui-scripts]
-graphs_view = "graphs_view.main:main"
+graphs_view = "graphs_view:main"
