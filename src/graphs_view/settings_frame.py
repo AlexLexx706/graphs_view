@@ -10,6 +10,8 @@ from .settings import Settings
 class SettingFrame(QtWidgets.QFrame):
     def __init__(self):
         super().__init__()
+
+        # SERIAL PORT UI ELEMENTS -------------------------------------------------------------------
         self.combo_box_port_path = QtWidgets.QComboBox()
         self.combo_box_port_path.setToolTip("Path to the COM port file")
         for desc in list_ports.comports():
@@ -37,6 +39,19 @@ class SettingFrame(QtWidgets.QFrame):
             self.combo_box_speed.findData(speed))
         self.combo_box_speed.currentIndexChanged.connect(self.on_speed_changed)
 
+        # UDP SETTINGS UI ELEMENTS --------------------------------------------------------------------
+        self.line_edit_udp_bind_ip = QtWidgets.QLineEdit("127.0.0.1")
+        self.line_edit_udp_bind_ip.setToolTip("UDP Bind IP address")
+        self.line_edit_udp_bind_port = QtWidgets.QLineEdit("5005")
+        self.line_edit_udp_bind_port.setToolTip("UDP Bind Port")
+        self.line_edit_udp_dest_ip = QtWidgets.QLineEdit("127.0.0.1")
+        self.line_edit_udp_dest_ip.setToolTip("UDP Destination IP address")
+        self.line_edit_udp_dest_port = QtWidgets.QLineEdit("5006")
+        self.line_edit_udp_dest_port.setToolTip("UDP Destination Port")
+        self.push_button_open_udp = QtWidgets.QPushButton("Open")
+        self.push_button_open_udp.setToolTip("Open/Close the UDP connection.")
+
+        # LINE PARSING UI ELEMMENTS -------------------------------------------------------------------
         self.group_box_line_parsing = QtWidgets.QGroupBox(self)
         self.group_box_line_parsing.setTitle('Line parsing')
         self.group_box_line_parsing.setToolTip(
@@ -63,9 +78,22 @@ class SettingFrame(QtWidgets.QFrame):
             QtWidgets.QSizePolicy.Minimum,
             QtWidgets.QSizePolicy.Fixed)
 
+        # LAYOUT FOR SERIAL SETUP ---------------------------------------------------------------------
         v_box_layout = QtWidgets.QVBoxLayout(self)
         h_box_layout = QtWidgets.QHBoxLayout()
         v_box_layout.addLayout(h_box_layout)
+
+        # LAYOUT FOR UDP SETUP ------------------------------------------------------------------------
+        udp_layout = QtWidgets.QHBoxLayout()
+        udp_layout.addWidget(QtWidgets.QLabel("UDP: Bind Port:"))
+        udp_layout.addWidget(self.line_edit_udp_bind_port)
+        udp_layout.addWidget(QtWidgets.QLabel("Dest IP:"))
+        udp_layout.addWidget(self.line_edit_udp_dest_ip)
+        udp_layout.addWidget(QtWidgets.QLabel("Dest Port:"))
+        udp_layout.addWidget(self.line_edit_udp_dest_port)
+        udp_layout.addWidget(self.push_button_open_udp)
+
+        v_box_layout.addLayout(udp_layout)
 
         self.push_button_clear = QtWidgets.QPushButton("Clear")
         self.push_button_clear.setToolTip(
@@ -144,6 +172,7 @@ class SettingFrame(QtWidgets.QFrame):
             QtWidgets.QSizePolicy.Minimum,
             QtWidgets.QSizePolicy.Fixed)
 
+        h_box_layout.addWidget(QtWidgets.QLabel("Serial:"))
         h_box_layout.addWidget(self.combo_box_port_path)
         h_box_layout.addWidget(self.push_button_open)
         h_box_layout.addWidget(self.combo_box_speed)
