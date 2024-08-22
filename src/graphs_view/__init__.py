@@ -18,6 +18,8 @@ from .settings_frame import SettingFrame
 from .parameters_frame import ParametersFrame
 
 # SERIAL PORT READER
+
+
 def process_port_serial(in_queue, out_queue, settings):
     try:
         with serial.Serial(**settings['serial']) as ser:
@@ -126,6 +128,8 @@ def process_port_udp(in_queue, out_queue, settings):
                 try:
                     packet, __addr = udp_socket.recvfrom(1024)
                     for symbol in packet:
+                        # convert to bytes
+                        symbol = symbol.to_bytes(1, byteorder='big')
                         # splitter detected
                         if symbol in b'\r\n':
                             if r_state != 1:
@@ -433,7 +437,7 @@ class GraphsView(QtWidgets.QMainWindow):
                 out_queue = multiprocessing.Queue()
                 settings = {
                     'udp': {
-                        'timeout':self.TIMEOUT,
+                        'timeout': self.TIMEOUT,
                         'bind_ip': self.settings_frame.line_edit_udp_bind_ip.text(),
                         'bind_port': int(self.settings_frame.line_edit_udp_bind_port.text()),
                         'dest_ip': self.settings_frame.line_edit_udp_dest_ip.text(),
