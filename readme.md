@@ -1,4 +1,4 @@
-# Graphs view - tool for displaying data from the serial port as graphs (Windows, Linux,...)
+# Graphs view - tool for displaying data from the Serial-Port/UDP/TCP as graphs (Windows, Linux,...)
 
 ## Purpose of the application:
 
